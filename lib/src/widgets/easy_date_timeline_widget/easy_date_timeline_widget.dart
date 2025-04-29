@@ -159,6 +159,21 @@ class _EasyDateTimeLineState extends State<EasyDateTimeLine> {
                 ],
               ),
             ),
+
+          // Padding(
+          //   padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 5.h),
+          //   child: Align(
+          //     alignment: Alignment.centerLeft,
+          //     child: Text(
+          //       "${_getDayName(viewModel.selectedDate)} ${viewModel.selectedDate.day} ${_getMonthName(viewModel.selectedDate)}, ${viewModel.selectedDate.year}",
+          //       style: TextStyle(
+          //         color: Colors.black,
+          //         fontSize: 16.sp,
+          //         fontWeight: FontWeight.w500,
+          //       ),
+          //     ),
+          //   ),
+          // ),
           TimeLineWidget(
             initialDate: initialDate.copyWith(
               month: _easyMonth.vale,
@@ -189,6 +204,7 @@ class _EasyDateTimeLineState extends State<EasyDateTimeLine> {
     setState(() {
       _initialDay = 1;
       _easyMonth = month!;
+      widget.headerProps.onMonthChange?.call(month);
     });
   }
 

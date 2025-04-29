@@ -1,3 +1,4 @@
+import 'package:easy_date_timeline/src/models/easy_month.dart';
 import 'package:flutter/material.dart' show TextStyle, EdgeInsets;
 
 import 'date_formatter.dart';
@@ -18,6 +19,7 @@ final class EasyHeaderProps {
     this.monthStyle,
     this.padding,
     this.dateFormatter,
+    this.onMonthChange,
   });
 
   /// Whether to show the header of the date timeline widget.
@@ -48,6 +50,8 @@ final class EasyHeaderProps {
   final EdgeInsets? padding;
 
   final DateFormatter? dateFormatter;
+
+  final void Function(EasyMonth date)? onMonthChange;
 }
 
 enum SelectedDateFormat {
