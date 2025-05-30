@@ -1,3 +1,4 @@
+import '../../easy_date_time_line_picker/easy_date_time_line_picker.exports.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
@@ -18,10 +19,16 @@ class EasyDateTimeLine extends StatefulWidget {
     this.headerProps = const EasyHeaderProps(),
     this.timeLineProps = const EasyTimeLineProps(),
     this.dayProps = const EasyDayProps(),
+    this.gridDayProps,
     this.onDateChange,
     this.itemBuilder,
+    this.gridItemBuilder,
     this.activeColor,
+    this.viewType,
     this.locale = "en_US",
+    this.onViewTypeChange,
+    this.showViewToggle = true,
+    this.isNavigateGridToList = false,
   });
 
   /// Represents the initial date for the timeline widget.
@@ -46,6 +53,10 @@ class EasyDateTimeLine extends StatefulWidget {
   /// the color of the text and background, and the font size.
   final EasyDayProps dayProps;
 
+  /// Contains properties for configuring the appearance and behavior of the day widgets in the grid view.
+  /// If not provided, will use dayProps as fallback.
+  final EasyDayProps? gridDayProps;
+
   /// Called when the selected date in the timeline changes.
   /// This function takes a `DateTime` object as its parameter, which represents the new selected date.
   final OnDateChangeCallBack? onDateChange;
@@ -64,6 +75,20 @@ class EasyDateTimeLine extends StatefulWidget {
 
   final ItemBuilderCallBack? itemBuilder;
 
+  /// Custom item builder specifically for grid view.
+  /// If not provided, will use itemBuilder as fallback.
+  final ItemBuilderCallBack? gridItemBuilder;
+  final ViewType? viewType;
+
+  /// Called when the view type changes between grid and list
+  final Function(ViewType)? onViewTypeChange;
+
+  /// Whether to show the view toggle button in the header
+  final bool showViewToggle;
+
+  /// When enabled, selecting a date in grid view will automatically switch to list view
+  final bool isNavigateGridToList;
+
   /// A `String` that represents the locale code to use for formatting the dates in the timeline.
   final String locale;
 
@@ -74,10 +99,12 @@ class EasyDateTimeLine extends StatefulWidget {
 class _EasyDateTimeLineState extends State<EasyDateTimeLine> {
   late EasyMonth _easyMonth;
   late int _initialDay;
+  late ViewType _currentViewType;
 
   late ValueNotifier<DateTime?> _focusedDateListener;
 
   DateTime get initialDate => widget.initialDate;
+
   @override
   void initState() {
     // Init easy date timeline locale
@@ -88,11 +115,28 @@ class _EasyDateTimeLineState extends State<EasyDateTimeLine> {
         EasyDateUtils.convertDateToEasyMonth(widget.initialDate, widget.locale);
     _initialDay = widget.initialDate.day;
     _focusedDateListener = ValueNotifier(initialDate);
+    _currentViewType = widget.viewType ?? ViewType.list;
   }
 
   void _onFocusedDateChanged(DateTime date) {
     _focusedDateListener.value = date;
     widget.onDateChange?.call(date);
+
+    // Auto-switch to list view when date is selected in grid view
+    if (widget.isNavigateGridToList && _currentViewType == ViewType.grid) {
+      setState(() {
+        _currentViewType = ViewType.list;
+      });
+      widget.onViewTypeChange?.call(_currentViewType);
+    }
+  }
+
+  void _onViewTypeToggle() {
+    setState(() {
+      _currentViewType =
+          _currentViewType == ViewType.list ? ViewType.grid : ViewType.list;
+    });
+    widget.onViewTypeChange?.call(_currentViewType);
   }
 
   @override
@@ -102,6 +146,75 @@ class _EasyDateTimeLineState extends State<EasyDateTimeLine> {
   }
 
   EasyHeaderProps get _headerProps => widget.headerProps;
+
+  Widget _buildViewToggleButton() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(0),
+        border: Border.all(color: Colors.grey[300]!),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // List view button
+          GestureDetector(
+            onTap: () {
+              if (_currentViewType != ViewType.list) {
+                _onViewTypeToggle();
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: _currentViewType == ViewType.list
+                    ? widget.activeColor ?? Theme.of(context).primaryColor
+                    : Colors.transparent,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(0),
+                  bottomLeft: Radius.circular(0),
+                ),
+              ),
+              child: Icon(
+                Icons.today,
+                size: 20,
+                color: _currentViewType == ViewType.list
+                    ? Colors.white
+                    : Colors.grey[600],
+              ),
+            ),
+          ),
+          // Grid view button
+          GestureDetector(
+            onTap: () {
+              if (_currentViewType != ViewType.grid) {
+                _onViewTypeToggle();
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: _currentViewType == ViewType.grid
+                    ? widget.activeColor ?? Theme.of(context).primaryColor
+                    : Colors.transparent,
+                borderRadius: const BorderRadius.only(
+                  topRight: Radius.circular(0),
+                  bottomRight: Radius.circular(0),
+                ),
+              ),
+              child: Icon(
+                Icons.calendar_month_sharp,
+                size: 20,
+                color: _currentViewType == ViewType.grid
+                    ? Colors.white
+                    : Colors.grey[600],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -124,6 +237,7 @@ class _EasyDateTimeLineState extends State<EasyDateTimeLine> {
     final activeDayTextColor = brightness == Brightness.light
         ? EasyColors.dayAsNumColor
         : Colors.white;
+
     return ValueListenableBuilder(
       valueListenable: _focusedDateListener,
       builder: (context, focusedDate, child) => Column(
@@ -138,42 +252,44 @@ class _EasyDateTimeLineState extends State<EasyDateTimeLine> {
                     bottom: EasyConstants.timelinePadding,
                   ),
               child: Row(
-                mainAxisAlignment: _headerProps.centerHeader == true
-                    ? MainAxisAlignment.center
-                    : MainAxisAlignment.spaceBetween,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  SelectedDateWidget(
-                    date: focusedDate ?? initialDate,
-                    locale: widget.locale,
-                    headerProps: _headerProps,
-                  ),
-                  if (_showMonthPicker(pickerType: MonthPickerType.dropDown))
-                    child!,
-                  if (_showMonthPicker(pickerType: MonthPickerType.switcher))
-                    EasyMonthSwitcher(
+                  // Left side - Selected date
+                  Expanded(
+                    child: SelectedDateWidget(
+                      date: focusedDate ?? initialDate,
                       locale: widget.locale,
-                      value: _easyMonth,
-                      onMonthChange: _onMonthChange,
-                      style: _headerProps.monthStyle,
+                      headerProps: _headerProps,
                     ),
+                  ),
+
+                  // Center - View toggle button
+                  if (widget.showViewToggle)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: _buildViewToggleButton(),
+                    ),
+
+                  // Right side - Month picker
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_showMonthPicker(
+                          pickerType: MonthPickerType.dropDown))
+                        child!,
+                      if (_showMonthPicker(
+                          pickerType: MonthPickerType.switcher))
+                        EasyMonthSwitcher(
+                          locale: widget.locale,
+                          value: _easyMonth,
+                          onMonthChange: _onMonthChange,
+                          style: _headerProps.monthStyle,
+                        ),
+                    ],
+                  ),
                 ],
               ),
             ),
-
-          // Padding(
-          //   padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 5.h),
-          //   child: Align(
-          //     alignment: Alignment.centerLeft,
-          //     child: Text(
-          //       "${_getDayName(viewModel.selectedDate)} ${viewModel.selectedDate.day} ${_getMonthName(viewModel.selectedDate)}, ${viewModel.selectedDate.year}",
-          //       style: TextStyle(
-          //         color: Colors.black,
-          //         fontSize: 16.sp,
-          //         fontWeight: FontWeight.w500,
-          //       ),
-          //     ),
-          //   ),
-          // ),
           TimeLineWidget(
             initialDate: initialDate.copyWith(
               month: _easyMonth.vale,
@@ -183,11 +299,16 @@ class _EasyDateTimeLineState extends State<EasyDateTimeLine> {
             focusedDate: focusedDate,
             onDateChange: _onFocusedDateChanged,
             timeLineProps: widget.timeLineProps,
-            dayProps: widget.dayProps,
-            itemBuilder: widget.itemBuilder,
+            dayProps: _currentViewType == ViewType.grid
+                ? (widget.gridDayProps ?? widget.dayProps)
+                : widget.dayProps,
+            itemBuilder: _currentViewType == ViewType.grid
+                ? (widget.gridItemBuilder ?? widget.itemBuilder)
+                : widget.itemBuilder,
             activeDayTextColor: activeDayTextColor,
             activeDayColor: activeDayColor,
             locale: widget.locale,
+            viewType: _currentViewType,
           ),
         ],
       ),
